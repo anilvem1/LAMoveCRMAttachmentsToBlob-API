@@ -27,10 +27,6 @@ These Logic Apps can be used together with the Attachment Management solution av
 <img src="http://azuredeploy.net/deploybutton.png"/>
 </a>
 
-#### Note: If CRM version is 9.0 and later, please do the below
-
-- While deploying Logic App (LA-API-MoveCRMEmail-AttachmentsToBlob), enter the parameter 'crmOrgVersion' value as 8.2 instead of 9.0
-
 ## Pre requisites
 
 1) Valid Azure Subscription
