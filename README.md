@@ -47,7 +47,6 @@ You can click the "Deploy to Azure" button at the beginning of this document.
 Once the Logic App deployment is completed, you can perform below steps to test your Logic App
 
 - Open Logic App in Code View
-- Make sure the the CRM org unique name is having correct extension based on region. (Ex: NA its crm , Australia its crm6 and so on)
 - Recurrence: Change the recurrence schedule of Logic App as per your requirement to make it schedule job
 - Note: By default, Logic App moves top 2 attachment records ("$top": 2) to Azure Blob. Please update the Logic App in code view with the number you wanted
 
