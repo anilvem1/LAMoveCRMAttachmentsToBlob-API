@@ -7,6 +7,7 @@ These Logic Apps uses the below:
 - Uses Application user to connect to Dynamics CRM via Web API (For more information, please visit <https://github.com/anilvem1/CrmWebApiOAuth>)
 - Uses Azure Blob REST API to connect to Blob
 - No dependency on API connections
+- Applicable to Dynamics CRM versions 8.2 and later
 
 It would be ideal to test run the these Logic Apps in your pre - production environments before using in your production environment.
 
