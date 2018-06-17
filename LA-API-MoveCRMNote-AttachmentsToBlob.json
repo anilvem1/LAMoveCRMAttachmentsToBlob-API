@@ -1,0 +1,245 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "logicAppName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "metadata": {
+        "description": "Name of the Logic App."
+      }
+    },
+    "logicAppLocation": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "allowedValues": [
+        "[resourceGroup().location]",
+        "eastasia",
+        "southeastasia",
+        "centralus",
+        "eastus",
+        "eastus2",
+        "westus",
+        "northcentralus",
+        "southcentralus",
+        "northeurope",
+        "westeurope",
+        "japanwest",
+        "japaneast",
+        "brazilsouth",
+        "australiaeast",
+        "australiasoutheast",
+        "southindia",
+        "centralindia",
+        "westindia",
+        "canadacentral",
+        "canadaeast",
+        "uksouth",
+        "ukwest",
+        "westcentralus",
+        "westus2"
+      ],
+      "metadata": {
+        "description": "Location of the Logic App."
+      }
+    },
+    "subscriptionTenantId": {
+      "type": "string",
+      "metadata": {
+        "description": "Specify a valid Office365 subscription Tenant ID. Ex: 72f988bf-86f1-41af-91ab-2d7cd0xxxxxx"
+      }
+    },
+    "crmClientId": {
+      "type": "string",
+      "metadata": {
+        "description": "Specify a valid Azure AD app client ID to access CRM resource."
+      }
+    },
+    "crmClientSecret": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Specify a valid Azure AD app client secret to access CRM resource."
+      }
+    },
+    "crmOrgDomainName": {
+      "type": "string",
+      "defaultValue": "Specify a valid Dynamics CRM Online Org Domain Name Ex: contoso"
+    },
+    "crmOrgVersion": {
+      "type": "string",
+      "defaultValue": "Specify a valid Dynamics CRM Online Org Version Ex: 8.2, 9.0"
+    },
+    "azureStorageBlobContainerUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Specify a valid azureStorageBlobContainerUrl. Ex: https://<StorageAccountName>.blob.core.windows.net/<ContainerName>/"
+      }
+    },
+    "azureStorageSASKey": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Specify a valid storage account SAS key. Ex: ?sv=yyyy-mm-dd&ss=....."
+      }
+    }
+  },
+  "variables": {},
+  "resources": [
+    {
+      "name": "[parameters('logicAppName')]",
+      "type": "Microsoft.Logic/workflows",
+      "location": "[parameters('logicAppLocation')]",
+      "tags": {
+        "displayName": "LogicApp"
+      },
+      "apiVersion": "2016-06-01",
+      "properties": {
+        "definition": {
+          "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+          "actions": {
+            "GetCrmAuthToken": {
+              "type": "Http",
+              "inputs": {
+                "method": "POST",
+                "uri": "@concat('https://login.microsoftonline.com/',parameters('subscriptionTenantId'),'/oauth2/token')",
+                "headers": {
+                  "Content-type": "application/x-www-form-urlencoded"
+                },
+                "body": "@concat('grant_type=client_credentials&client_id=',parameters('crmClientId'),'&client_secret=',encodeUriComponent(parameters('crmClientSecret')),'&resource=https%3A%2F%2F',parameters('crmOrgDomainName'),'.crm.dynamics.com')"
+              },
+              "runAfter": {}
+            },
+            "GetNotes": {
+              "type": "Http",
+              "inputs": {
+                "method": "GET",
+                "uri": "@{concat('https://',parameters('crmOrgDomainName'),'.api.crm.dynamics.com/api/data/v',parameters('crmOrgVersion'),'/annotations?$top=2&$select=annotationid,isdocument,filename,documentbody&$filter=isdocument eq true and documentbody ne null and filename ne ''theme.css'' and filename ne ''bootstrap.min.css''&$orderby=createdon asc')}",
+                "headers": {
+                  "Authorization": "Bearer @{body('GetCrmAuthToken')['access_token']}"
+                }
+              },
+              "runAfter": {
+                "GetCrmAuthToken": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "For_each": {
+              "type": "Foreach",
+              "foreach": "@body('GetNotes')['value']",
+              "actions": {
+                "CreateAzureBlob": {
+                  "type": "Http",
+                  "inputs": {
+                    "body": "@base64ToBinary(items('For_each')?['documentbody'])",
+                    "headers": {
+                      "Content-Length": "@length(items('For_each')?['documentbody'])",
+                      "Content-Type": "application/octet-stream",
+                      "x-ms-blob-type": "BlockBlob",
+                      "x-ms-date": "@{utcnow('R')}",
+                      "x-ms-meta-crmOrgDomainName": "@parameters('crmOrgDomainName')",
+                      "x-ms-version": "2015-02-21"
+                    },
+                    "method": "PUT",
+                    "uri": "@{concat(parameters('azureStorageBlobContainerUrl'),concat(items('For_each')?['annotationid'],'-',items('For_each')?['filename']),parameters('azureStorageSASKey'))}"
+                  },
+                  "runAfter": {}
+                },
+                "UpdateNote": {
+                  "type": "Http",
+                  "inputs": {
+                    "method": "PATCH",
+                    "uri": "@{concat('https://',parameters('crmOrgDomainName'),'.api.crm.dynamics.com/api/data/v',parameters('crmOrgVersion'),'/annotations(',encodeURIComponent(items('For_each')?['annotationid']),')')}",
+                    "headers": {
+                      "Authorization": "Bearer @{body('GetCrmAuthToken')['access_token']}"
+                    },
+                    "body": {
+                      "documentbody": null
+                    }
+                  },
+                  "runAfter": {
+                    "CreateAzureBlob": [
+                      "Succeeded"
+                    ]
+                  }
+                }
+              },
+              "runAfter": {
+                "GetNotes": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "parameters": {
+            "subscriptionTenantId": {
+              "defaultValue": "",
+              "type": "string"
+            },
+            "crmClientId": {
+              "defaultValue": "",
+              "type": "string"
+            },
+            "crmClientSecret": {
+              "defaultValue": "",
+              "type": "securestring"
+            },
+            "crmOrgDomainName": {
+              "defaultValue": "",
+              "type": "string"
+            },
+            "crmOrgVersion": {
+              "defaultValue": "",
+              "type": "string"
+            },
+            "azureStorageBlobContainerUrl": {
+              "defaultValue": "",
+              "type": "string"
+            },
+            "azureStorageSASKey": {
+              "defaultValue": "",
+              "type": "securestring"
+            }
+          },
+          "triggers": {
+            "Recurrence": {
+              "type": "Recurrence",
+              "recurrence": {
+                "frequency": "Day",
+                "interval": 300
+              },
+              "operationOptions": "singleInstance"
+            }
+          },
+          "contentVersion": "1.0.0.0",
+          "outputs": {}
+        },
+        "parameters": {
+          "crmClientId": {
+            "value": "[parameters('crmClientId')]"
+          },
+          "subscriptionTenantId": {
+            "value": "[parameters('subscriptionTenantId')]"
+          },
+          "crmClientSecret": {
+            "value": "[parameters('crmClientSecret')]"
+          },
+          "crmOrgDomainName": {
+            "value": "[parameters('crmOrgDomainName')]"
+          },
+          "crmOrgVersion": {
+            "value": "[parameters('crmOrgVersion')]"
+          },
+          "azureStorageBlobContainerUrl": {
+            "value": "[parameters('azureStorageBlobContainerUrl')]"
+          },
+          "azureStorageSASKey": {
+            "value": "[parameters('azureStorageSASKey')]"
+          }
+        }
+      },
+      "dependsOn": []
+    }
+  ],
+  "outputs": {}
+}
