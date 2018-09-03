@@ -141,7 +141,7 @@
                       "x-ms-version": "2015-02-21"
                     },
                     "method": "PUT",
-                    "uri": "@{concat(parameters('azureStorageBlobContainerUrl'),concat(items('For_each')?['activitymimeattachmentid'],'-',items('For_each')?['attachmentid']['filename']),parameters('azureStorageSASKey'))}"
+                    "uri": "@{concat(parameters('azureStorageBlobContainerUrl'),concat(items('For_each')?['activitymimeattachmentid'],'_',items('For_each')?['attachmentid']['filename']),parameters('azureStorageSASKey'))}"
                   },
                   "runAfter": {}
                 },
