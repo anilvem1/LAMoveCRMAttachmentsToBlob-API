@@ -141,7 +141,7 @@
                       "x-ms-version": "2015-02-21"
                     },
                     "method": "PUT",
-                    "uri": "@{concat(parameters('azureStorageBlobContainerUrl'),concat(items('For_each')?['annotationid'],'_',items('For_each')?['filename']),parameters('azureStorageSASKey'))}"
+                    "uri": "@{concat(parameters('azureStorageBlobContainerUrl'),concat(items('For_each')?['annotationid'],'_',encodeUriComponent(items('For_each')?['filename'])),parameters('azureStorageSASKey'))}"
                   },
                   "runAfter": {}
                 },
